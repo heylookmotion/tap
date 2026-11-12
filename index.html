@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Membuka Halaman Ulasan...</title>
+  <style>
+    body {
+      margin: 0; display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      height: 100vh; background-color: #f8f9fa;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #333; text-align: center; padding: 20px;
+    }
+    .loader {
+      width: 40px; height: 40px;
+      border: 3px solid #e0e0e0; border-top: 3px solid #4285F4;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .msg { font-size: 15px; font-weight: 500; color: #555; }
+    .sub { font-size: 12px; color: #999; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="loader" id="spinner"></div>
+  <div class="msg" id="status">Mengarahkan ke Google Review...</div>
+  <div class="sub" id="subtext">Mohon tunggu sebentar</div>
+
+  <script>
+    // 1. TEMPEL LINK CSV GOOGLE SHEETS KAMU DI BAWAH INI:
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSRuWZe-oOfUy1tvXEFuo122QlNLs_f46vjM6VCYPLgAzsi9K0sU5WLGl2IW3gcvocYZBgX_dqCcFC7/pub?gid=0&single=true&output=csv";
+
+    // Fungsi parser CSV yang aman terhadap tanda koma di dalam tanda kutip
+    function parseCSVRow(row) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < row.length; i++) {
+        const char = row[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    async function runRedirect() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+
+      if (!id) {
+        document.getElementById("spinner").style.display = "none";
+        document.getElementById("status").innerText = "ID Tag Tidak Valid";
+        document.getElementById("subtext").innerText = "Silakan scan atau tap ulang pada plakat.";
+        return;
+      }
+
+      try {
+        // Tambahkan timestamp (?t=...) agar browser tidak menyimpan cache lama saat kamu baru ganti link
+        const response = await fetch(SHEET_CSV_URL + "&t=" + new Date().getTime(), { cache: "no-store" });
+        const csvText = await response.text();
+        const lines = csvText.split(/\r?\n/);
+
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue;
+          const cols = parseCSVRow(lines[i]);
+          const rowId = cols[0];
+          const targetUrl = cols[2];
+
+          if (rowId === id.trim()) {
+            if (targetUrl && targetUrl.startsWith("http")) {
+              window.location.replace(targetUrl);
+              return;
+            } else {
+              document.getElementById("spinner").style.display = "none";
+              document.getElementById("status").innerText = "Tag #" + id + " Belum Diaktifkan";
+              document.getElementById("subtext").innerText = "Hubungi pemilik tempat untuk mengaktifkan tag ini.";
+              return;
+            }
+          }
+        }
+
+        document.getElementById("spinner").style.display = "none";
+        document.getElementById("status").innerText = "ID #" + id + " Tidak Ditemukan";
+      } catch (err) {
+        document.getElementById("spinner").style.display = "none";
+        document.getElementById("status").innerText = "Gagal Memuat Koneksi";
+        document.getElementById("subtext").innerText = "Periksa koneksi internet Anda lalu coba lagi.";
+      }
+    }
+
+    runRedirect();
+  </script>
+</body>
+</html>
