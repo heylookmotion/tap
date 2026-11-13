@@ -5,15 +5,24 @@
   <title>Redirecting...</title>
   <script>
     const id = new URLSearchParams(window.location.search).get("id");
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
     if (id) {
       fetch("links.json?v=" + Date.now())
         .then(r => r.json())
         .then(data => {
-          const url = data[id.trim()];
-          if (url && url.startsWith("http")) {
-            window.location.replace(url);
-          } else {
+          const item = data[id.trim()];
+          if (!item || (!item.url && !item.place_id)) {
             document.body.innerText = "Tag #" + id + " belum diaktifkan.";
+            return;
+          }
+
+          if (isAndroid && item.place_id) {
+            const fallback = encodeURIComponent(item.url || "https://search.google.com/local/writereview?placeid=" + item.place_id);
+            const intentUrl = "intent://www.google.com/maps/search/?api=1&query=Google&query_place_id=" + item.place_id + "#Intent;scheme=https;package=com.google.android.apps.maps;S.browser_fallback_url=" + fallback + ";end";
+            window.location.replace(intentUrl);
+          } else {
+            window.location.replace(item.url || "https://search.google.com/local/writereview?placeid=" + item.place_id);
           }
         })
         .catch(() => document.body.innerText = "Koneksi bermasalah.");
