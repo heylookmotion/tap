@@ -3,33 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Membuka Halaman Ulasan...</title>
+  <title>Google Review</title>
+  <!-- Preconnect agar koneksi ke Google Sheets & Font dimulai lebih awal -->
+  <link rel="preconnect" href="https://docs.google.com" crossorigin>
+  <link rel="dns-prefetch" href="https://docs.google.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0; display: flex; flex-direction: column;
-      justify-content: center; align-items: center;
-      height: 100vh; background-color: #f8f9fa;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: #333; text-align: center; padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #ffffff;
+      font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #202124;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
     }
-    .loader {
-      width: 40px; height: 40px;
-      border: 3px solid #e0e0e0; border-top: 3px solid #4285F4;
-      border-radius: 50%; animation: spin 0.8s linear infinite;
+    .container {
+      width: 100%;
+      max-width: 340px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* Google 4-Color Material Spinner */
+    .google-spinner {
+      width: 36px;
+      height: 36px;
+      animation: rotate 2s linear infinite;
+      margin-bottom: 20px;
+    }
+    .google-spinner circle {
+      stroke-dasharray: 1, 200;
+      stroke-dashoffset: 0;
+      animation: dash 1.5s ease-in-out infinite, colors 6s ease-in-out infinite;
+      stroke-linecap: round;
+    }
+    @keyframes rotate { 100% { transform: rotate(360deg); } }
+    @keyframes dash {
+      0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
+      50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35px; }
+      100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124px; }
+    }
+    @keyframes colors {
+      0%, 100% { stroke: #4285F4; }
+      25% { stroke: #EA4335; }
+      50% { stroke: #FBBC05; }
+      75% { stroke: #34A853; }
+    }
+    .status-icon {
+      display: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #FCE8E6;
+      color: #D93025;
+      align-items: center;
+      justify-content: center;
       margin-bottom: 16px;
+      font-size: 20px;
+      font-weight: 500;
     }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .msg { font-size: 15px; font-weight: 500; color: #555; }
-    .sub { font-size: 12px; color: #999; margin-top: 6px; }
+    .msg {
+      font-size: 16px;
+      font-weight: 500;
+      color: #202124;
+      letter-spacing: -0.01em;
+      line-height: 1.4;
+    }
+    .sub {
+      font-size: 13px;
+      color: #5F6368;
+      margin-top: 6px;
+      line-height: 1.45;
+    }
   </style>
-</head>
-<body>
-  <div class="loader" id="spinner"></div>
-  <div class="msg" id="status">Mengarahkan ke Google Review...</div>
-  <div class="sub" id="subtext">Mohon tunggu sebentar</div>
 
   <script>
+    // Jalankan fetch langsung di <head> sebelum halaman selesai render agar loading jauh lebih cepat
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSRuWZe-oOfUy1tvXEFuo122QlNLs_f46vjM6VCYPLgAzsi9K0sU5WLGl2IW3gcvocYZBgX_dqCcFC7/pub?gid=0&single=true&output=csv";
+    const params = new URLSearchParams(window.location.search);
+    const tagId = params.get("id")?.trim();
+
+    // Mulai request jaringan seketika saat HTML dibaca browser
+    const fetchPromise = tagId
+      ? fetch(SHEET_CSV_URL + "&t=" + Math.floor(Date.now() / 10000), { cache: "no-store" }).then(r => r.text())
+      : null;
 
     function parseCSVRow(row) {
       const result = [];
@@ -50,52 +115,59 @@
       return result;
     }
 
-    async function runRedirect() {
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get("id");
-
-      if (!id) {
+    function showError(title, subtitle) {
+      const renderErr = () => {
         document.getElementById("spinner").style.display = "none";
-        document.getElementById("status").innerText = "ID Tag Tidak Valid";
-        document.getElementById("subtext").innerText = "Silakan scan atau tap ulang pada plakat.";
+        document.getElementById("err-icon").style.display = "flex";
+        document.getElementById("status").textContent = title;
+        document.getElementById("subtext").textContent = subtitle;
+      };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", renderErr);
+      } else {
+        renderErr();
+      }
+    }
+
+    (async function initRedirect() {
+      if (!tagId) {
+        showError("ID Tag Tidak Valid", "Silakan tap atau pindai ulang pada plakat.");
         return;
       }
 
       try {
-        // Tambahkan timestamp (?t=...) agar browser tidak menyimpan cache lama saat kamu baru ganti link
-        const response = await fetch(SHEET_CSV_URL + "&t=" + new Date().getTime(), { cache: "no-store" });
-        const csvText = await response.text();
+        const csvText = await fetchPromise;
         const lines = csvText.split(/\r?\n/);
 
         for (let i = 1; i < lines.length; i++) {
           if (!lines[i].trim()) continue;
           const cols = parseCSVRow(lines[i]);
-          const rowId = cols[0];
-          const targetUrl = cols[2];
-
-          if (rowId === id.trim()) {
+          if (cols[0] === tagId) {
+            const targetUrl = cols[2];
             if (targetUrl && targetUrl.startsWith("http")) {
               window.location.replace(targetUrl);
               return;
             } else {
-              document.getElementById("spinner").style.display = "none";
-              document.getElementById("status").innerText = "Tag #" + id + " Belum Diaktifkan";
-              document.getElementById("subtext").innerText = "Hubungi pemilik tempat untuk mengaktifkan tag ini.";
+              showError("Tag #" + tagId + " Belum Diaktifkan", "Hubungi pemilik tempat untuk mengaktifkan tag ini.");
               return;
             }
           }
         }
-
-        document.getElementById("spinner").style.display = "none";
-        document.getElementById("status").innerText = "ID #" + id + " Tidak Ditemukan";
+        showError("ID #" + tagId + " Tidak Ditemukan", "Pastikan kode tag sudah terdaftar.");
       } catch (err) {
-        document.getElementById("spinner").style.display = "none";
-        document.getElementById("status").innerText = "Gagal Memuat Koneksi";
-        document.getElementById("subtext").innerText = "Periksa koneksi internet Anda lalu coba lagi.";
+        showError("Gagal Memuat Koneksi", "Periksa koneksi internet Anda lalu coba lagi.");
       }
-    }
-
-    runRedirect();
+    })();
   </script>
+</head>
+<body>
+  <div class="container">
+    <svg class="google-spinner" id="spinner" viewBox="25 25 50 50">
+      <circle cx="50" cy="50" r="20" fill="none" stroke-width="4" stroke-miterlimit="10"/>
+    </svg>
+    <div class="status-icon" id="err-icon">!</div>
+    <div class="msg" id="status">Mengarahkan ke Google Review...</div>
+    <div class="sub" id="subtext">Mohon tunggu sebentar</div>
+  </div>
 </body>
 </html>
