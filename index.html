@@ -2,14 +2,20 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Redirecting...</title>
+</head>
+<body>
   <script>
     const id = new URLSearchParams(window.location.search).get("id");
     const isAndroid = /Android/i.test(navigator.userAgent);
 
     if (id) {
       fetch("links.json?v=" + Date.now())
-        .then(r => r.json())
+        .then(r => {
+          if (!r.ok) throw new Error("File JSON tidak ditemukan (" + r.status + ")");
+          return r.json();
+        })
         .then(data => {
           const item = data[id.trim()];
           if (!item || (!item.url && !item.place_id)) {
@@ -25,9 +31,10 @@
             window.location.replace(item.url || "https://search.google.com/local/writereview?placeid=" + item.place_id);
           }
         })
-        .catch(() => document.body.innerText = "Koneksi bermasalah.");
+        .catch(err => {
+          document.body.innerText = "Error: " + err.message;
+        });
     }
   </script>
-</head>
-<body></body>
+</body>
 </html>
