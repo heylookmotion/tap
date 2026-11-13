@@ -29,10 +29,8 @@
   <div class="sub" id="subtext">Mohon tunggu sebentar</div>
 
   <script>
-    // 1. TEMPEL LINK CSV GOOGLE SHEETS KAMU DI BAWAH INI:
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSRuWZe-oOfUy1tvXEFuo122QlNLs_f46vjM6VCYPLgAzsi9K0sU5WLGl2IW3gcvocYZBgX_dqCcFC7/pub?gid=0&single=true&output=csv";
 
-    // Fungsi parser CSV yang aman terhadap tanda koma di dalam tanda kutip
     function parseCSVRow(row) {
       const result = [];
       let current = "";
