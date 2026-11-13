@@ -1,21 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redirecting...</title>
+  <title>Beri Ulasan Google</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f8faf9;
+      text-align: center;
+      padding: 20px;
+    }
+    .card {
+      background: #ffffff;
+      padding: 32px 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      max-width: 340px;
+      width: 100%;
+    }
+    h2 { margin: 0 0 8px; font-size: 20px; color: #1a1a1a; }
+    p { margin: 0 0 24px; font-size: 14px; color: #666; }
+    .btn {
+      display: block;
+      background-color: #7FAD8C;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
+  <div class="card" id="box" style="display:none;">
+    <h2 id="store-name">Memuat...</h2>
+    <p>Ketuk tombol di bawah untuk memberi rating di Google Maps</p>
+    <a id="review-btn" class="btn" href="#">Buka Google Maps ★</a>
+  </div>
+
   <script>
     const id = new URLSearchParams(window.location.search).get("id");
     const isAndroid = /Android/i.test(navigator.userAgent);
 
     if (id) {
       fetch("links.json?v=" + Date.now())
-        .then(r => {
-          if (!r.ok) throw new Error("File JSON tidak ditemukan (" + r.status + ")");
-          return r.json();
-        })
+        .then(r => r.json())
         .then(data => {
           const item = data[id.trim()];
           if (!item || (!item.url && !item.place_id)) {
@@ -23,13 +59,18 @@
             return;
           }
 
+          document.getElementById("store-name").innerText = item.nama;
+          const btn = document.getElementById("review-btn");
+          const webUrl = item.url || "https://search.google.com/local/writereview?placeid=" + item.place_id;
+
           if (isAndroid && item.place_id) {
-            const fallback = encodeURIComponent(item.url || "https://search.google.com/local/writereview?placeid=" + item.place_id);
-            const intentUrl = "intent://www.google.com/maps/search/?api=1&query=Google&query_place_id=" + item.place_id + "#Intent;scheme=https;package=com.google.android.apps.maps;S.browser_fallback_url=" + fallback + ";end";
-            window.location.replace(intentUrl);
+            const fallback = encodeURIComponent(webUrl);
+            btn.href = "intent://www.google.com/maps/search/?api=1&query=Google&query_place_id=" + item.place_id + "#Intent;scheme=https;package=com.google.android.apps.maps;S.browser_fallback_url=" + fallback + ";end";
           } else {
-            window.location.replace(item.url || "https://search.google.com/local/writereview?placeid=" + item.place_id);
+            btn.href = webUrl;
           }
+
+          document.getElementById("box").style.display = "block";
         })
         .catch(err => {
           document.body.innerText = "Error: " + err.message;
