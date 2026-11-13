@@ -4,14 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Google Review</title>
-  <!-- Preconnect agar koneksi ke Google Sheets & Font dimulai lebih awal -->
-  <link rel="preconnect" href="https://docs.google.com" crossorigin>
-  <link rel="dns-prefetch" href="https://docs.google.com">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://docs.google.com" crossorigin>
 
   <style>
+    /* Memuat Product Sans / Google Sans langsung dari server Google */
+    @font-face {
+      font-family: 'Product Sans';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/productsans/v19/pxiDypQkot1TnFhsFMOfGShVF9eO.woff2) format('woff2');
+    }
+    @font-face {
+      font-family: 'Product Sans';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url(https://fonts.gstatic.com/s/productsans/v19/pxicypQkot1TnFhsFMOfGShdrPKbTv0.woff2) format('woff2');
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       display: flex;
@@ -19,15 +31,14 @@
       align-items: center;
       min-height: 100vh;
       background-color: #ffffff;
-      font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Product Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: #202124;
       padding: 24px;
       -webkit-font-smoothing: antialiased;
     }
     .container {
-      width: 100%;
-      max-width: 340px;
       text-align: center;
+      max-width: 320px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -36,13 +47,13 @@
     .google-spinner {
       width: 36px;
       height: 36px;
-      animation: rotate 2s linear infinite;
+      animation: rotate 1.8s linear infinite;
       margin-bottom: 20px;
     }
     .google-spinner circle {
       stroke-dasharray: 1, 200;
       stroke-dashoffset: 0;
-      animation: dash 1.5s ease-in-out infinite, colors 6s ease-in-out infinite;
+      animation: dash 1.4s ease-in-out infinite, colors 5.6s ease-in-out infinite;
       stroke-linecap: round;
     }
     @keyframes rotate { 100% { transform: rotate(360deg); } }
@@ -57,86 +68,63 @@
       50% { stroke: #FBBC05; }
       75% { stroke: #34A853; }
     }
-    .status-icon {
-      display: none;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background-color: #FCE8E6;
-      color: #D93025;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-      font-size: 20px;
-      font-weight: 500;
-    }
     .msg {
-      font-size: 16px;
+      font-family: 'Product Sans', sans-serif;
+      font-size: 18px;
       font-weight: 500;
       color: #202124;
       letter-spacing: -0.01em;
-      line-height: 1.4;
     }
     .sub {
-      font-size: 13px;
+      font-family: 'Product Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 400;
       color: #5F6368;
       margin-top: 6px;
-      line-height: 1.45;
     }
   </style>
 
   <script>
-    // Jalankan fetch langsung di <head> sebelum halaman selesai render agar loading jauh lebih cepat
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSRuWZe-oOfUy1tvXEFuo122QlNLs_f46vjM6VCYPLgAzsi9K0sU5WLGl2IW3gcvocYZBgX_dqCcFC7/pub?gid=0&single=true&output=csv";
-    const params = new URLSearchParams(window.location.search);
-    const tagId = params.get("id")?.trim();
+    const tagId = new URLSearchParams(window.location.search).get("id")?.trim();
+    const CACHE_KEY = "tap_link_" + tagId;
 
-    // Mulai request jaringan seketika saat HTML dibaca browser
-    const fetchPromise = tagId
-      ? fetch(SHEET_CSV_URL + "&t=" + Math.floor(Date.now() / 10000), { cache: "no-store" }).then(r => r.text())
-      : null;
+    const cachedUrl = tagId ? localStorage.getItem(CACHE_KEY) : null;
+    if (cachedUrl && cachedUrl.startsWith("http")) {
+      window.location.replace(cachedUrl);
+    }
 
     function parseCSVRow(row) {
       const result = [];
-      let current = "";
-      let inQuotes = false;
+      let current = "", inQuotes = false;
       for (let i = 0; i < row.length; i++) {
         const char = row[i];
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = "";
-        } else {
-          current += char;
-        }
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ""; }
+        else current += char;
       }
       result.push(current.trim());
       return result;
     }
 
     function showError(title, subtitle) {
-      const renderErr = () => {
+      const render = () => {
         document.getElementById("spinner").style.display = "none";
-        document.getElementById("err-icon").style.display = "flex";
         document.getElementById("status").textContent = title;
         document.getElementById("subtext").textContent = subtitle;
       };
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", renderErr);
-      } else {
-        renderErr();
-      }
+      document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", render) : render();
     }
 
-    (async function initRedirect() {
+    (async function syncAndRedirect() {
       if (!tagId) {
-        showError("ID Tag Tidak Valid", "Silakan tap atau pindai ulang pada plakat.");
+        showError("ID Tag Tidak Valid", "Silakan tap ulang pada plakat.");
         return;
       }
 
       try {
-        const csvText = await fetchPromise;
+        const res = await fetch(SHEET_CSV_URL);
+        const csvText = await res.text();
         const lines = csvText.split(/\r?\n/);
 
         for (let i = 1; i < lines.length; i++) {
@@ -145,17 +133,19 @@
           if (cols[0] === tagId) {
             const targetUrl = cols[2];
             if (targetUrl && targetUrl.startsWith("http")) {
-              window.location.replace(targetUrl);
+              localStorage.setItem(CACHE_KEY, targetUrl);
+              if (!cachedUrl) window.location.replace(targetUrl);
               return;
             } else {
-              showError("Tag #" + tagId + " Belum Diaktifkan", "Hubungi pemilik tempat untuk mengaktifkan tag ini.");
+              localStorage.removeItem(CACHE_KEY);
+              if (!cachedUrl) showError("Tag #" + tagId + " Belum Diaktifkan", "Hubungi pemilik tempat untuk mengaktifkan tag ini.");
               return;
             }
           }
         }
-        showError("ID #" + tagId + " Tidak Ditemukan", "Pastikan kode tag sudah terdaftar.");
-      } catch (err) {
-        showError("Gagal Memuat Koneksi", "Periksa koneksi internet Anda lalu coba lagi.");
+        if (!cachedUrl) showError("ID #" + tagId + " Tidak Ditemukan", "Pastikan kode tag sudah terdaftar.");
+      } catch (e) {
+        if (!cachedUrl) showError("Gagal Memuat Koneksi", "Periksa koneksi internet Anda lalu coba lagi.");
       }
     })();
   </script>
@@ -165,7 +155,6 @@
     <svg class="google-spinner" id="spinner" viewBox="25 25 50 50">
       <circle cx="50" cy="50" r="20" fill="none" stroke-width="4" stroke-miterlimit="10"/>
     </svg>
-    <div class="status-icon" id="err-icon">!</div>
     <div class="msg" id="status">Mengarahkan ke Google Review...</div>
     <div class="sub" id="subtext">Mohon tunggu sebentar</div>
   </div>
